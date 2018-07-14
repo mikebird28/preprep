@@ -18,7 +18,6 @@ class PrepUnit():
             self.hash_path = None
             self.cache_helper = None
 
-
     def add_dependency(self,prep_unit):
         self.dependency += prep_unit
 
@@ -74,7 +73,22 @@ class Baseprep():
             raise OperationError("No operation has registered")
         sorted_nodes = resolve_graph(cnode_ls)
         graph = calc_graph.CalcGraph(inode_dict,cnode_ls,verbose = verbose)
-        return graph.run(datasets)
+        return graph.run(datasets,mode = "fit")
+
+    def gene(self,datasets,verbose = 0):
+        #check dataset type
+        if check_type(datasets):
+            raise TypeError("Cannot use {} for input".format(type(datasets)))
+
+        #walk units and generate calc_graph
+        top_node = self.top_unit.to_node()
+        cnode_ls,inode_dict = walk_node(top_node)
+        if len(cnode_ls) == 0:
+            raise OperationError("No operation has registered")
+        sorted_nodes = resolve_graph(cnode_ls)
+        graph = calc_graph.CalcGraph(inode_dict,cnode_ls,verbose = verbose)
+        return graph.run(datasets,mode = "predict")
+
 
 class Preprep(Baseprep):
     count_for_input = 0
@@ -138,5 +152,4 @@ def check_type(dataset):
         dict,
     ])
     return not type(dataset) in allowed
-
 

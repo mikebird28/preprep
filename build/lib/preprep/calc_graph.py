@@ -2,17 +2,22 @@ import io
 import os
 import hashlib
 import dill
-import pandas as pd
 import time
 import inspect
 import xxhash
 import numpy as np
 import pyarrow as pa
+import pandas as pd
 from pandas.util import hash_pandas_object
+from . import exception
+from . import save_file
 
 DUMP_CSV = "csv"
 DUMP_FEATHER = "feather"
 DUMP_PICKLE = "pickle"
+
+MODE_FIT = "fit"
+MODE_PRED = "predict"
 
 class PrepOp:
     def __init__(self,name,op,params):
@@ -25,7 +30,7 @@ class PrepOp:
 
     def get_hash(self):
         name_dump = dill.dumps(self.name)
-        op_dump = dill.dumps(self.op.__code__.co_code)
+        op_dump = dill.dumps(self.op.__code__.co_code) + dill.dumps(self.op.__code__.co_consts)
         params_dump = dill.dumps(sorted(self.params.items()))
         total_byte = name_dump + op_dump + params_dump
         hash_value = hashlib.md5(total_byte).hexdigest()
@@ -55,33 +60,57 @@ class CalcNode:
         self.output_dataset = None
         self.output_hash = None
 
-    def run(self,verbose = 0):
+    def run(self,mode = "fit", verbose = 0):
+        #check arguments
+        use_hash = True
+        if mode == MODE_FIT:
+            use_hash = True
+        elif mode == MODE_PRED:
+            use_hash = False
+        else:
+            raise Exception("unknown run mode")
+
         self.run_state = True
         prev_hash = [n.get_hash() for n in self.prev_nodes]
         op_hash = self.op.get_hash()
 
-        #if hash_path is not None ,load hash values
+        #if hash_path exists ,load hash values
         hash_exists = False
         if self.hash_path is not None:
             hash_exists = True
             saved_out_hash, saved_op_hash, saved_inp_hash = load_hash(self.hash_path)
 
-        if hash_exists and prev_hash == saved_inp_hash and op_hash == saved_op_hash:
-            log("[*] available cache for {} exists, skip calculte".format(self.op.name),1,verbose)
-            self.output_hash = saved_out_hash
-            self.load_from_cache = True
-        else:
-            if prev_hash != saved_inp_hash:
-                log("[*] df hash ({}) changed".format(self.op.name),2,verbose)
-            if op_hash != saved_op_hash:
-                log("[*] op hash ({}) changed".format(self.op.name),2,verbose)
-            log("[*] no available cache exists for {}, calculate".format(self.op.name),1,verbose)
+        # if in prediction mode
+        if not use_hash:
+            log("[*] running on prediction mode, calculate {}".format(self.op.name),1,verbose)
             df = [n.get_dataset() for n in self.prev_nodes]
             df = self.op.execute(df)
             self.output_dataset = df
-            self.output_hash = dataset_hash(df)
-            if self.do_cache:
-                save_hash(self.hash_path,self.output_hash,op_hash,prev_hash)
+            return
+
+        # if cache file avaibale, skip calculate
+        elif hash_exists and prev_hash == saved_inp_hash and op_hash == saved_op_hash:
+            log("[*] available cache for {} exists, skip calculation".format(self.op.name),1,verbose)
+            self.output_hash = saved_out_hash
+            self.load_from_cache = True
+            return
+
+        # if cache file doesn't avaibale, calculate
+        if hash_exists and prev_hash == saved_inp_hash:
+            log("[*] saved cache for {} exists, but op hash value has changed, calculate".format(self.op.name),1,verbose)
+        elif hash_exists and op_hash == saved_op_hash:
+            log("[*] saved cache for {} exists, but dataset hash value has changed, calculate".format(self.op.name),1,verbose)
+        elif hash_exists:
+            log("[*] saved cache for {} exists, but both op and dataset hash value has changed, calculate".format(self.op.name),1,verbose)
+        else:
+            log("[*] no cache exists for {}, calculate".format(self.op.name),1,verbose)
+        df = [n.get_dataset() for n in self.prev_nodes]
+        df = self.op.execute(df)
+        self.output_dataset = df
+        self.output_hash = dataset_hash(df)
+        if self.do_cache:
+            save_hash(self.hash_path,self.output_hash,op_hash,prev_hash)
+            self.cache_helper.save(self.output_dataset)
 
     def get_hash(self):
         if not self.run_state:
@@ -92,13 +121,12 @@ class CalcNode:
         if not self.run_state:
             raise Exception("this node hasn't run yet")
 
-        if self.load_from_cache:
+        if self.output_dataset is not None:
+            return self.output_dataset
+        elif self.load_from_cache:
             return self.cache_helper.load()
-        elif self.do_cache:
-            self.cache_helper.save(self.output_dataset)
-            return self.output_dataset
         else:
-            return self.output_dataset
+            raise exception.GraphError("something wrong")
 
 class InputNode:
     def __init__(self,name):
@@ -125,7 +153,14 @@ class CalcGraph:
         self.nodes = nodes
         self.verbose = verbose
 
-    def run(self,inp_dataset):
+    def run(self,inp_dataset,mode = "fit"):
+        """
+        run calc graph
+
+        Arguments:
+        inp_datasets : pd.DataFrame, pd.Series, pd.Panel or list of them
+        mode : run mode ("fit" or "predict")
+        """
         #check input value and set to input_node
         log("[*] start running graph",1,self.verbose)
         if not isinstance(inp_dataset,dict) and len(self.inp_nodes) == 1:
@@ -140,7 +175,7 @@ class CalcGraph:
             raise Exception("Input is something wrong")
 
         for n in self.nodes:
-            n.run(self.verbose)
+            n.run(verbose = self.verbose, mode = mode)
         last_node = self.nodes[-1]
         return last_node.get_dataset()
 
@@ -172,9 +207,11 @@ class CacheHelper():
         if extension != self.typ:
             raise Exception("extension error")
         if extension == "csv":
-            return pd.read_csv(self.path)
+            #return pd.read_csv(self.path)
+            return save_file.csv_to_df(self.path)
         elif extension == "feather":
-            return pd.read_feather(self.path)
+            return save_file.feather_to_df(self.path)
+            #return pd.read_feather(self.path)
         elif extension == "npy":
             return np.load(self.path)
         else:
@@ -182,9 +219,10 @@ class CacheHelper():
 
     def save(self,dataset):
         if is_pandas_object(dataset) and self.typ == "csv":
-            dataset.to_csv(self.path,index = False)
+            save_file.df_to_csv(dataset,self.path)
         elif is_pandas_object(dataset) and self.typ == "feather":
-            dataset.to_feather(self.path)
+            save_file.df_to_feather(dataset,self.path)
+            #dataset.to_feather(self.path)
         elif is_numpy_object(dataset) and self.typ == "npy":
             np.save(self.path,dataset)
         else:
@@ -247,5 +285,3 @@ def check_input(dataset,depth = 0):
 def log(message,level,verbose):
     if verbose >=  level:
         print(message)
-
-

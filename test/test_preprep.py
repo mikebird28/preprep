@@ -82,6 +82,23 @@ class TestPreprep(unittest.TestCase):
 
         shutil.rmtree("./test_cache")
 
+    def test_pred_mode(self):
+        if not os.path.exists("./test_cache"):
+            os.mkdir("./test_cache")
+        df = pd.DataFrame([[1,2,3],[4,5,6]],columns = ["a","b","c"])
+        prep = preprep.Preprep("./test_cache")
+        prep = prep.add(lambda x:x * 4)
+        prep = prep.add(lambda x:x * 2)
+        prep = prep.add(lambda x:x * 3)
+        ret1 = prep.gene(df,verbose = 1)
+        ret2 = prep.gene(df,verbose = 1)
+        df_true = pd.DataFrame([[24,48,72],[96,120,144]],columns = ["a","b","c"])
+
+        assert_frame_equal(ret1,ret2)
+        assert_frame_equal(ret1,df_true)
+        shutil.rmtree("./test_cache")
+
+
 
 def f1(df1,add_value = 3):
     return df1 + add_value
