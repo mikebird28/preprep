@@ -98,10 +98,31 @@ class TestPreprep(unittest.TestCase):
         assert_frame_equal(ret1,df_true)
         shutil.rmtree("./test_cache")
 
+    def test_multivalue_output(self):
+        if not os.path.exists("./test_cache"):
+            os.mkdir("./test_cache")
+        df = pd.DataFrame([[1,2,3],[4,5,6]],columns = ["a","b","c"])
+        prep = preprep.Preprep("./test_cache")
+        prep = prep.add(f2)
+        ret11,ret12 = prep.gene(df)
+        ret21,ret22 = prep.gene(df)
+
+        assert_frame_equal(ret11,ret12)
+        assert_frame_equal(ret11,ret21)
+
+        prep = preprep.Preprep("./test_cache")
+        prep = prep.add(lambda df: "b")
+        ret = prep.gene("a")
+        shutil.rmtree("./test_cache")
 
 
 def f1(df1,add_value = 3):
     return df1 + add_value
+
+def f2(df1,add_value = 3):
+    return (df1,df1)
+
+
 
 if __name__ == "__main__":
     unittest.main()

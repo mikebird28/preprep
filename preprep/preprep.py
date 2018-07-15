@@ -62,10 +62,6 @@ class Baseprep():
         return new_prep
 
     def fit_gene(self,datasets,verbose = 0):
-        #check dataset type
-        if check_type(datasets):
-            raise TypeError("Cannot use {} for input".format(type(datasets)))
-
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)
@@ -76,10 +72,6 @@ class Baseprep():
         return graph.run(datasets,mode = "fit")
 
     def gene(self,datasets,verbose = 0):
-        #check dataset type
-        if check_type(datasets):
-            raise TypeError("Cannot use {} for input".format(type(datasets)))
-
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)

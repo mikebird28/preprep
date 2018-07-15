@@ -96,11 +96,11 @@ class CalcNode:
             return
 
         # if cache file doesn't avaibale, calculate
-        if hash_exists and prev_hash == saved_inp_hash:
+        if hash_exists and prev_hash == saved_inp_hash and op_hash != saved_op_hash:
             log("[*] saved cache for {} exists, but op hash value has changed, calculate".format(self.op.name),1,verbose)
-        elif hash_exists and op_hash == saved_op_hash:
+        elif hash_exists and prev_hash != saved_inp_hash and op_hash == saved_op_hash:
             log("[*] saved cache for {} exists, but dataset hash value has changed, calculate".format(self.op.name),1,verbose)
-        elif hash_exists:
+        elif hash_exists and prev_hash != saved_inp_hash and op_hash != saved_op_hash:
             log("[*] saved cache for {} exists, but both op and dataset hash value has changed, calculate".format(self.op.name),1,verbose)
         else:
             log("[*] no cache exists for {}, calculate".format(self.op.name),1,verbose)
@@ -242,16 +242,31 @@ def is_scipy_object(dataset):
     pass
 
 def dataset_hash(dataset):
-    if is_pandas_object(dataset):
+    if isinstance(dataset,(tuple,list)):
+        hash_list = []
+        for d in dataset:
+            hv  = int(dataset_hash(d),16)
+            hash_list.append(hv)
+        hash_value = str(hex(sum(hash_list)))
+        return hash_value
+
+    elif isinstance(dataset,(dict)):
+        keys = dataset.keys()
+        values = dataset.values()
+        hash_value = str(hex(int(dataset_hash(keys),16) + int(dataset(keys),16)))
+        return hash_value
+    elif is_pandas_object(dataset):
         #h = hashlib.md5(dataset.values.tobytes()).hexdigest()
         h = str(hash_pandas_object(dataset).sum())
         #h = xxhash.xxh64(feather_encode(dataset)).hexdigest()
-        #h = xxhash.xxh64(dill.dumps(dataset)).hexdigest()
         return h
     elif is_numpy_object(dataset):
-        return hashlib.md5(dataset.tobytes()).hexdigest()
+        h = xxhash.xxh64(dataset.tobytes()).hexdigest()
+        return h
     else:
-        raise TypeError("Unknown data type")
+        h = xxhash.xxh64(dill.dumps(dataset)).hexdigest()
+        return h
+
 
 def write_arrow(df):
     batch = pa.RecordBatch.from_pandas(df)
