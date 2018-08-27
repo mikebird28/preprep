@@ -2,7 +2,6 @@ import io
 import os
 import hashlib
 import dill
-import time
 import inspect
 import xxhash
 import numpy as np
@@ -11,6 +10,7 @@ import pandas as pd
 from pandas.util import hash_pandas_object
 from . import exception
 from . import save_file
+from . import operator
 
 DUMP_CSV = "csv"
 DUMP_FEATHER = "feather"
@@ -22,20 +22,27 @@ MODE_PRED = "predict"
 class PrepOp:
     def __init__(self,name,op,params):
         self.name = name
-        self.op = op
+        #op hash value shuold be calculated becuase there is a possibility that someone may rewrite the source code while running
+        
+        self.op_hash = get_sourcecode(op)
+        self.op = operator.Caller(op)
         self.params = params
 
-    def execute(self,dataset):
-        return self.op(*dataset,**self.params)
+    def execute(self,dataset,mode):
+        if mode == MODE_FIT:
+            return self.op.on_fit(*dataset,**self.params)
+        elif mode == MODE_PRED:
+            return self.op.on_pred(*dataset,**self.params)
+        else:
+            raise TypeError("unknown mode : {}".format(mode))
 
     def get_hash(self):
         name_dump = dill.dumps(self.name)
-        op_dump = dill.dumps(self.op.__code__.co_code) + dill.dumps(self.op.__code__.co_consts)
+        op_dump = self.op_hash
         params_dump = dill.dumps(sorted(self.params.items()))
         total_byte = name_dump + op_dump + params_dump
         hash_value = hashlib.md5(total_byte).hexdigest()
         return hash_value
-
 
 class CalcNode:
     def __init__(self, prev_nodes, op, hash_path, cache_helper):
@@ -68,7 +75,7 @@ class CalcNode:
         elif mode == MODE_PRED:
             use_hash = False
         else:
-            raise Exception("unknown run mode")
+            raise ValueError("unknown mode {}".format(mode))
 
         self.run_state = True
         prev_hash = [n.get_hash() for n in self.prev_nodes]
@@ -78,13 +85,14 @@ class CalcNode:
         hash_exists = False
         if self.hash_path is not None:
             hash_exists = True
+            hash_exists = check_hash_exists(self.hash_path,self.cache_helper.path)
             saved_out_hash, saved_op_hash, saved_inp_hash = load_hash(self.hash_path)
 
         # if in prediction mode
         if not use_hash:
             log("[*] running on prediction mode, calculate {}".format(self.op.name),1,verbose)
             df = [n.get_dataset() for n in self.prev_nodes]
-            df = self.op.execute(df)
+            df = self.op.execute(df,mode)
             self.output_dataset = df
             return
 
@@ -105,7 +113,7 @@ class CalcNode:
         else:
             log("[*] no cache exists for {}, calculate".format(self.op.name),1,verbose)
         df = [n.get_dataset() for n in self.prev_nodes]
-        df = self.op.execute(df)
+        df = self.op.execute(df,mode)
         self.output_dataset = df
         self.output_hash = dataset_hash(df)
         if self.do_cache:
@@ -120,9 +128,10 @@ class CalcNode:
     def get_dataset(self):
         if not self.run_state:
             raise Exception("this node hasn't run yet")
-
+        #if already calculate and have dataset, return it
         if self.output_dataset is not None:
             return self.output_dataset
+        #if cache file exists, load from cache file
         elif self.load_from_cache:
             return self.cache_helper.load()
         else:
@@ -207,13 +216,12 @@ class CacheHelper():
         if extension != self.typ:
             raise Exception("extension error")
         if extension == "csv":
-            #return pd.read_csv(self.path)
             return save_file.csv_to_df(self.path)
         elif extension == "feather":
             return save_file.feather_to_df(self.path)
-            #return pd.read_feather(self.path)
-        elif extension == "npy":
-            return np.load(self.path)
+        elif extension == "pickle":
+            with open(self.path,"rb") as fp:
+                return dill.load(fp)
         else:
             raise Exception("")
 
@@ -222,11 +230,9 @@ class CacheHelper():
             save_file.df_to_csv(dataset,self.path)
         elif is_pandas_object(dataset) and self.typ == "feather":
             save_file.df_to_feather(dataset,self.path)
-            #dataset.to_feather(self.path)
-        elif is_numpy_object(dataset) and self.typ == "npy":
-            np.save(self.path,dataset)
         else:
-            raise Exception("dataset type is {}, but cache format is {}".format(type(dataset),self.typ))
+            with open(self.path,"wb") as fp:
+                dill.dump(dataset,fp)
 
 def is_pandas_object(dataset):
     if isinstance(dataset,pd.DataFrame) or isinstance(dataset,pd.Series) or isinstance(dataset,pd.Panel):
@@ -238,8 +244,13 @@ def is_numpy_object(dataset):
         return True
     return False
 
-def is_scipy_object(dataset):
-    pass
+def get_sourcecode(func):
+    try:
+        lines = inspect.getsource(func).strip().encode()
+        return lines
+    except:
+        print("Warning : cannot access to the source code")
+        return None
 
 def dataset_hash(dataset):
     if isinstance(dataset,(tuple,list)):
@@ -251,9 +262,9 @@ def dataset_hash(dataset):
         return hash_value
 
     elif isinstance(dataset,(dict)):
-        keys = dataset.keys()
-        values = dataset.values()
-        hash_value = str(hex(int(dataset_hash(keys),16) + int(dataset(keys),16)))
+        keys = list(dataset.keys())
+        values = list(dataset.values())
+        hash_value = str(hex(int(dataset_hash(keys),16) + int(dataset_hash(values),16)))
         return hash_value
     elif is_pandas_object(dataset):
         #h = hashlib.md5(dataset.values.tobytes()).hexdigest()
@@ -279,11 +290,6 @@ def write_arrow(df):
     #buf.to_pybytes()
     return buf.getvalue()
 
-def feather_encode(df):
-    buf = io.BytesIO()
-    df.to_feather(buf)
-    return buf.getvalue()
-
 def check_input(dataset,depth = 0):
     if isinstance(dataset,list) and depth == 0:
         flag = True
@@ -297,6 +303,13 @@ def check_input(dataset,depth = 0):
     else:
         return False
 
+def check_hash_exists(hash_path,data_path):
+    hash_ext =  os.path.exists(hash_path)
+    data_ext =  os.path.exists(data_path)
+    return hash_ext and data_ext
+
 def log(message,level,verbose):
     if verbose >=  level:
         print(message)
+
+

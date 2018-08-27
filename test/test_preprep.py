@@ -90,7 +90,7 @@ class TestPreprep(unittest.TestCase):
         prep = prep.add(lambda x:x * 4)
         prep = prep.add(lambda x:x * 2)
         prep = prep.add(lambda x:x * 3)
-        ret1 = prep.gene(df,verbose = 1)
+        ret1 = prep.fit_gene(df,verbose = 1)
         ret2 = prep.gene(df,verbose = 1)
         df_true = pd.DataFrame([[24,48,72],[96,120,144]],columns = ["a","b","c"])
 
@@ -104,15 +104,15 @@ class TestPreprep(unittest.TestCase):
         df = pd.DataFrame([[1,2,3],[4,5,6]],columns = ["a","b","c"])
         prep = preprep.Preprep("./test_cache")
         prep = prep.add(f2)
-        ret11,ret12 = prep.gene(df)
-        ret21,ret22 = prep.gene(df)
+        ret11,ret12 = prep.fit_gene(df)
+        ret21,ret22 = prep.fit_gene(df)
 
         assert_frame_equal(ret11,ret12)
         assert_frame_equal(ret11,ret21)
 
         prep = preprep.Preprep("./test_cache")
         prep = prep.add(lambda df: "b")
-        ret = prep.gene("a")
+        ret = prep.fit_gene("a")
         shutil.rmtree("./test_cache")
 
 

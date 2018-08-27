@@ -1,27 +1,69 @@
 import pandas as pd
 import json
 import os
+import copy
 
 KEY_INDEX_NAME = "index_name"
 KEY_INDEX_FLAG = "index_flag"
 
-def df_to_csv(df,path):
+def to_writable(df):
+    df = df.copy()
     info = {}
-    #index name
-    index_name = df.index.name
-    #True if index name is "index"
-    index_flag = False
+    if isinstance(df.index,pd.MultiIndex):
+        new_indexes = []
+        is_none = []
+        for i,f in enumerate(df.index.names):
+            if f is None:
+                #df.index.names[i] = "level_{}".format(i)
+                new_indexes.append("level_{}".format(i))
+                is_none.append(True)
+            else:
+                new_indexes.append(f)
+                is_none.append(False)
+        df.index.names = new_indexes
+        info[KEY_INDEX_NAME] = copy.copy(df.index.names)
+        info[KEY_INDEX_FLAG] = is_none
+        df.reset_index(inplace = True)
+        return df,info
 
-    if index_name is "index":
-        index_flag = True
-    if index_name is None:
-        index_name = "index"
+    else:
+        is_none = []
+        if df.index.name is None:
+            df.index.name = "index"
+            is_none.append(True)
+        else:
+            is_none.append(False)
 
-    info[KEY_INDEX_NAME] = index_name
-    info[KEY_INDEX_FLAG] = index_flag
+        info[KEY_INDEX_NAME] = [copy.copy(df.index.name)]
+        info[KEY_INDEX_FLAG] = is_none
+        df.reset_index(inplace = True)
+        return df,info
 
+def reconstruct_index(df,info):
+    #in normal index case
+    if len(info[KEY_INDEX_NAME]) == 1:
+        df = df.set_index(info[KEY_INDEX_NAME][0])
+        is_none = info[KEY_INDEX_FLAG][0]
+        if is_none:
+            df.index.name = None
+        else:
+            df.index.name = info[KEY_INDEX_NAME]
+        return df
+    #in multi index case
+    else:
+        df = df.set_index(info[KEY_INDEX_NAME])
+        index_names = []
+        for name,flag in zip(info[KEY_INDEX_NAME],info[KEY_INDEX_FLAG]):
+            if flag:
+                index_names.append(None)
+            else:
+                index_names.append(name)
+        df.index.names = index_names
+        return df
+
+def df_to_csv(df,path):
     #save df and info
-    df = df.reset_index()
+    df,info = to_writable(df)
     df.to_csv(path,index = False)
     info_path = get_info_path(path)
     save_info(info,info_path)
@@ -30,35 +72,15 @@ def csv_to_df(path):
     info_path = get_info_path(path)
     info = load_info(info_path)
 
-    index_name = info[KEY_INDEX_NAME]
-    index_flag = info[KEY_INDEX_FLAG]
-
     if "index_name" in info:
         df = pd.read_csv(path)
-        df = df.set_index(index_name)
-        if not index_flag:
-            df.index.name = None
+        df = reconstruct_index(df,info)
     else:
         df = pd.read_csv(path)
     return df
 
 def df_to_feather(df,path):
-    info = {}
-    #index name
-    index_name = df.index.name
-    #True if index name is "index"
-    index_flag = False
-
-    if index_name is "index":
-        index_flag = True
-    if index_name is None:
-        index_name = "index"
-
-    info[KEY_INDEX_NAME] = index_name
-    info[KEY_INDEX_FLAG] = index_flag
-
-    #save df and info
-    df = df.reset_index()
+    df,info = to_writable(df)
     df.to_feather(path)
     info_path = get_info_path(path)
     save_info(info,info_path)
@@ -67,14 +89,9 @@ def feather_to_df(path):
     info_path = get_info_path(path)
     info = load_info(info_path)
 
-    index_name = info[KEY_INDEX_NAME]
-    index_flag = info[KEY_INDEX_FLAG]
-
     if "index_name" in info:
         df = pd.read_feather(path)
-        df = df.set_index(index_name)
-        if not index_flag:
-            df.index.name = None
+        df = reconstruct_index(df,info)
     else:
         df = pd.read_feather(path)
     return df

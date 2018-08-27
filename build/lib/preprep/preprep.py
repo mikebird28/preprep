@@ -31,7 +31,7 @@ class PrepUnit():
             op = self.op
             hash_path = self.hash_path
             cache_helper = self.cache_helper
-            cnode = calc_graph.CalcNode(depend_cnode, op,hash_path,cache_helper)
+            cnode = calc_graph.CalcNode(depend_cnode,op,hash_path,cache_helper)
             self.compiled_node = cnode
         return self.compiled_node
 
@@ -46,10 +46,11 @@ class InputUnit():
 
 class Baseprep():
     count_for_name = 0
-    def __init__(self,cache_dir,inp_units,top_unit):
+    def __init__(self,cache_dir,inp_units,top_unit,logger = None):
         self.cache_dir = cache_dir
         self.inp_units = inp_units
         self.top_unit = top_unit
+        self.logger = None
 
     def add(self,f,params = {},name = None, cache_format = "csv"):
         if name is None:
@@ -62,43 +63,41 @@ class Baseprep():
         return new_prep
 
     def fit_gene(self,datasets,verbose = 0):
-        #check dataset type
-        #if check_type(datasets):
-        #    raise TypeError("Cannot use {} for input".format(type(datasets)))
-
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)
         if len(cnode_ls) == 0:
-            raise OperationError("No operation has registered")
+            raise exception.OperationError("No operation has registered")
         sorted_nodes = resolve_graph(cnode_ls)
-        graph = calc_graph.CalcGraph(inode_dict,cnode_ls,verbose = verbose)
+        graph = calc_graph.CalcGraph(inode_dict,sorted_nodes,verbose = verbose)
         return graph.run(datasets,mode = "fit")
 
     def gene(self,datasets,verbose = 0):
-        #check dataset type
-        #if check_type(datasets):
-        #    raise TypeError("Cannot use {} for input".format(type(datasets)))
-
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)
         if len(cnode_ls) == 0:
-            raise OperationError("No operation has registered")
+            raise exception.OperationError("No operation has registered")
         sorted_nodes = resolve_graph(cnode_ls)
-        graph = calc_graph.CalcGraph(inode_dict,cnode_ls,verbose = verbose)
+        graph = calc_graph.CalcGraph(inode_dict,sorted_nodes,verbose = verbose)
         return graph.run(datasets,mode = "predict")
 
 
 class Preprep(Baseprep):
     count_for_input = 0
-    def __init__(self,cache_dir,input_name = None):
+    def __init__(self,cache_dir,input_name = None, logger = None):
+
+        #if cache_dir doesn't exist, create directory
+        if not os.path.exists(cache_dir):
+            os.mkdir(cache_dir)
+
+        #if input_name isn't specified, set default value
         if input_name is None:
             Preprep.count_for_input += 1
             input_name = "input_{}".format(Preprep.count_for_input)
-
+            
         inp_unit = InputUnit(input_name)
-        super().__init__(cache_dir,[inp_unit],inp_unit)
+        super().__init__(cache_dir,[inp_unit],inp_unit, logger = logger)
 
 class Connect(Baseprep):
     count_for_connect = 0
@@ -134,7 +133,8 @@ def __walk_node(node,cnode_ls,inode_dict):
 def resolve_graph(nodes):
     resolved = []
     for n in nodes:
-        __resolve_graph(n,resolved)
+        if n not in resolved:
+            __resolve_graph(n,resolved)
     return resolved
 
 def __resolve_graph(node,resolved):
