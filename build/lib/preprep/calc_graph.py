@@ -24,8 +24,9 @@ class PrepOp:
         self.name = name
         #op hash value shuold be calculated becuase there is a possibility that someone may rewrite the source code while running
         
-        self.op_hash = get_sourcecode(op)
+        #self.op_hash = get_sourcecode(op)
         self.op = operator.Caller(op)
+        self.op_source = self.op.get_source()
         self.params = params
 
     def execute(self,dataset,mode):
@@ -38,7 +39,7 @@ class PrepOp:
 
     def get_hash(self):
         name_dump = dill.dumps(self.name)
-        op_dump = self.op_hash
+        op_dump = self.op_source
         params_dump = dill.dumps(sorted(self.params.items()))
         total_byte = name_dump + op_dump + params_dump
         hash_value = hashlib.md5(total_byte).hexdigest()
@@ -244,14 +245,6 @@ def is_numpy_object(dataset):
         return True
     return False
 
-def get_sourcecode(func):
-    try:
-        lines = inspect.getsource(func).strip().encode()
-        return lines
-    except:
-        print("Warning : cannot access to the source code")
-        return None
-
 def dataset_hash(dataset):
     if isinstance(dataset,(tuple,list)):
         hash_list = []
@@ -311,5 +304,3 @@ def check_hash_exists(hash_path,data_path):
 def log(message,level,verbose):
     if verbose >=  level:
         print(message)
-
-

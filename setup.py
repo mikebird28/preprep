@@ -2,11 +2,21 @@
 
 from distutils.core import setup
 
+requires = [
+    "dill",
+    "pandas>=0.20.1",
+    "xxhash",
+    "numpy",
+    "pyarrow",
+]
+
 setup(name='preprep',
     version='0.01',
-    description='Libirary to make preprocessing more comfortable and quickly',
+    description='Library to make preprocessing more comfortable and quickly',
     author='Keisuke Miura',
     author_email='hello.mikeneko@gmail.com',
-    url='https://www.python.org/sigs/distutils-sig/',
-    packages=['preprep'],
+    url = 'https://mikebird28.hatenablog.jp/',
+    licence = 'MIT',
+    packages = ["preprep"],
+    install_requires=requires,
 )
