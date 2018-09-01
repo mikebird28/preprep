@@ -7,7 +7,6 @@ requires = [
     "pandas>=0.20.1",
     "xxhash",
     "numpy",
-    "pyarrow",
 ]
 
 setup(name='preprep',
@@ -19,4 +18,11 @@ setup(name='preprep',
     licence = 'MIT',
     packages = ["preprep"],
     install_requires=requires,
+    classifiers = [
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python :: 3 :: Only',
+    ]
+
 )

@@ -5,7 +5,6 @@ import dill
 import inspect
 import xxhash
 import numpy as np
-import pyarrow as pa
 import pandas as pd
 from pandas.util import hash_pandas_object
 from . import exception
@@ -270,18 +269,6 @@ def dataset_hash(dataset):
     else:
         h = xxhash.xxh64(dill.dumps(dataset)).hexdigest()
         return h
-
-
-def write_arrow(df):
-    batch = pa.RecordBatch.from_pandas(df)
-    #batch = pa.Table.from_pandas(df))
-    buf = io.BytesIO()
-    sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchStreamWriter(buf, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
-    #buf.to_pybytes()
-    return buf.getvalue()
 
 def check_input(dataset,depth = 0):
     if isinstance(dataset,list) and depth == 0:
