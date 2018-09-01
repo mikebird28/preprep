@@ -2,3 +2,4 @@ build/
 dist/
 .DS_Store
 preprep.egg-info
+.python-version
