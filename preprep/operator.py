@@ -3,6 +3,9 @@ import inspect
 import dill
 #wrapper of the Operator, which provides the check of whether on_fit has already called
 class Caller():
+    """
+    Wrapper of operatoins
+    """
     def __init__(self,operator):
         self.__on_fit_called = False
         if isinstance(operator,Operator):
@@ -11,6 +14,8 @@ class Caller():
         elif callable(operator):
             self.source = self._get_source_func(operator)
             self.operator = FuncOp(operator)
+        else:
+            raise ValueError("you can only use Function or Operator subclass as 'add' arguments")
 
     def on_fit(self,*args,**kwargs):
         self.__on_fit_called = True
@@ -67,6 +72,4 @@ class FuncOp(Operator):
 
     def on_fit(self,*args,**kwargs):
         return self.f(*args,**kwargs)
-
-
 

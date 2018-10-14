@@ -10,7 +10,7 @@ requires = [
 ]
 
 setup(name='preprep',
-    version='0.01',
+    version='0.1.0',
     description='Library to make preprocessing more comfortable and quickly',
     author='Keisuke Miura',
     author_email='hello.mikeneko@gmail.com',

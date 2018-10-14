@@ -1,8 +1,6 @@
-import io
 import os
 import hashlib
 import dill
-import inspect
 import xxhash
 import numpy as np
 import pandas as pd
@@ -19,11 +17,18 @@ MODE_FIT = "fit"
 MODE_PRED = "predict"
 
 class PrepOp:
+    """
+    Wrapper of operations
+
+    Attributes:
+        name : name of operation
+        op   : body of operation
+        op_source : source code of op
+        params    : arguments for op
+    """
+
     def __init__(self,name,op,params):
         self.name = name
-        #op hash value shuold be calculated becuase there is a possibility that someone may rewrite the source code while running
-        
-        #self.op_hash = get_sourcecode(op)
         self.op = operator.Caller(op)
         self.op_source = self.op.get_source()
         self.params = params
@@ -67,7 +72,17 @@ class CalcNode:
         self.output_dataset = None
         self.output_hash = None
 
-    def run(self,mode = "fit", verbose = 0):
+    def run(self,mode = "fit", verbose = 0, do_cache = True):
+        """
+        Args:
+            mode : "fit" or "predit"
+            verbose : log level, default = 0
+            do_cache : if False, force not to save cache files.
+        Returns:
+            None
+        Raises:
+            None
+        """
         #check arguments
         use_hash = True
         if mode == MODE_FIT:
@@ -88,9 +103,12 @@ class CalcNode:
             hash_exists = check_hash_exists(self.hash_path,self.cache_helper.path)
             saved_out_hash, saved_op_hash, saved_inp_hash = load_hash(self.hash_path)
 
-        # if in prediction mode
-        if not use_hash:
-            log("[*] running on prediction mode, calculate {}".format(self.op.name),1,verbose)
+        # if in prediction mode or do_cache = False
+        if (not use_hash) or (not do_cache):
+            if not use_hash:
+                log("[*] running on prediction mode, calculate {}".format(self.op.name),1,verbose)
+            else:
+                log("[*] running of fit mode, but do_cache = False, calculate  {}".format(self.op.name),1,verbose)
             df = [n.get_dataset() for n in self.prev_nodes]
             df = self.op.execute(df,mode)
             self.output_dataset = df
@@ -114,6 +132,8 @@ class CalcNode:
             log("[*] no cache exists for {}, calculate".format(self.op.name),1,verbose)
         df = [n.get_dataset() for n in self.prev_nodes]
         df = self.op.execute(df,mode)
+        if df is None:
+            raise ValueError("op should return other than 0")
         self.output_dataset = df
         self.output_hash = dataset_hash(df)
         if self.do_cache:
@@ -162,27 +182,34 @@ class CalcGraph:
         self.nodes = nodes
         self.verbose = verbose
 
-    def run(self,inp_dataset,mode = "fit"):
+    def run(self,inp_dataset,mode = "fit", do_cache = True):
         """
         run calc graph
 
-        Arguments:
-        inp_datasets : pd.DataFrame, pd.Series, pd.Panel or list of them
-        mode : run mode ("fit" or "predict")
+        Args:
+            inp_datasets : pd.DataFrame, pd.Series, pd.Panel or list of them
+            mode         : run mode ("fit" or "predict")
+            do_cache     : if False, force to don't save cache files
+        Returns:
+            output_datasets
         """
         #check input value and set to input_node
         log("[*] start running graph",1,self.verbose)
+
+        #if number of node == 1
         if not isinstance(inp_dataset,dict) and len(self.inp_nodes) == 1:
             n = list(self.inp_nodes.values())[0]
             n.set_dataset(inp_dataset)
+        #if number of node > 1
         elif isinstance(inp_dataset,dict) and len(self.inp_nodes) == len(inp_dataset):
             if sorted(list(inp_dataset.keys())) != sorted(list(self.inp_nodes.keys())):
                 raise Exception("Input is something wrong")
             for k,n in self.inp_nodes.items():
                 n.set_dataset(inp_dataset[k])
         else:
-            raise Exception("Input is something wrong")
+            raise ValueError("Input is something wrong")
 
+        #execute all nodes
         for n in self.nodes:
             n.run(verbose = self.verbose, mode = mode)
         last_node = self.nodes[-1]

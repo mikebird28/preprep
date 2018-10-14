@@ -53,6 +53,19 @@ class Baseprep():
         self.logger = None
 
     def add(self,f,params = {},name = None, cache_format = "csv"):
+        """
+        regiter function to this preprep chain.
+
+        Args:
+            f    : operation fuction or operation class.
+            name : name of this instance.
+            cache_format : "feather", "csv", "pickle", default is "csv".
+        Returns:
+            return new instance of BasePrep.
+        Raises:
+        
+        """
+
         if name is None:
             Baseprep.count_for_name += 1
             name = "unit_{}".format(Baseprep.count_for_name)
@@ -62,7 +75,21 @@ class Baseprep():
         new_prep = Baseprep(self.cache_dir,self.inp_units,prep_unit)
         return new_prep
 
-    def fit_gene(self,datasets,verbose = 0):
+    def fit_gene(self, datasets, verbose = 0, do_cache = True):
+        """
+        apply registered operations to datasets. this method cache intermidiate result.
+
+        Args:
+            datasets : inputs dataset
+            verbose  : this mehtods 
+            do_cache : if False, this method will not save cache.
+
+        Returns:
+            dataset applied registered operations.
+
+        Raises:
+            
+        """
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)
@@ -73,6 +100,19 @@ class Baseprep():
         return graph.run(datasets,mode = "fit")
 
     def gene(self,datasets,verbose = 0):
+        """
+        apply registered operations to datasets. you can't use this method before fit_gene
+
+        Args:
+            datasets : inputs dataset
+            verbose  : this mehtods 
+
+        Returns:
+            dataset applied registered operations.
+
+        Raises:
+        """
+
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)
