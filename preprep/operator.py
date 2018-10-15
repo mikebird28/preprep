@@ -42,8 +42,9 @@ class Caller():
             txt += self._get_source_func(value)
 
         variables = vars(op)
+        variables = [(k,v) for k,v in variables.items()]
         variables = sorted(variables, key = lambda x : x[0])
-        for name,value in methods:
+        for name,value in variables:
             txt += name.encode("utf-8")
             txt += dill.dumps(value)
         return txt

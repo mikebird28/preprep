@@ -64,7 +64,6 @@ class TestCalcGraph(unittest.TestCase):
         graph = create_mutliinput_graph("test1")
         dataset1 = graph.run({"input_1":dataset,"input_2":dataset})
         dataset2 = graph.run({"input_1":dataset,"input_2":dataset})
-        print(dataset2.head())
         assert_frame_equal(dataset1,dataset2)
         shutil.rmtree("./test_cache")
 

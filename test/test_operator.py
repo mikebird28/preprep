@@ -8,6 +8,7 @@ class TestOperator(unittest.TestCase):
         source = None
         for i in range(100):
             op = operator.Operator()
+            op.hello = "OK"
             caller = operator.Caller(op)
             s = caller.get_source()
 
