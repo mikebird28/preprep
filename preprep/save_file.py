@@ -2,6 +2,7 @@ import pandas as pd
 import json
 import os
 import copy
+import feather
 
 KEY_INDEX_NAME = "index_name"
 KEY_INDEX_FLAG = "index_flag"
@@ -90,10 +91,10 @@ def feather_to_df(path):
     info = load_info(info_path)
 
     if "index_name" in info:
-        df = pd.read_feather(path)
+        df = feather.read_dataframe(path)
         df = reconstruct_index(df,info)
     else:
-        df = pd.read_feather(path)
+        df = feather.read_dataframe(path)
     return df
 
 def save_info(info,path):
