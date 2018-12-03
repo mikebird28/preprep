@@ -3,3 +3,5 @@ dist/
 .DS_Store
 preprep.egg-info
 .python-version
+preprep/__pycache__
+test/__pycache__

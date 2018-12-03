@@ -7,6 +7,7 @@ requires = [
     "pandas>=0.20.1",
     "xxhash",
     "numpy",
+    "feather-format"
 ]
 
 setup(name='preprep',
