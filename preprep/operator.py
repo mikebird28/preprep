@@ -23,8 +23,10 @@ class PrepOp:
         self.op = Caller(op,self.box)
         self.op_source = self.op.get_source()
         self.params = params
+        self.is_executed = False
 
     def execute(self,dataset,mode):
+        self.is_executed = True
         if mode == constant.MODE_FIT:
             return self.op.on_fit(*dataset,**self.params)
         elif mode == constant.MODE_PRED:
@@ -40,12 +42,10 @@ class PrepOp:
         hash_value = hashlib.md5(total_byte).hexdigest()
         return hash_value
 
-    def get_box(self):
-        return self.box
-
     def set_box(self,box):
         self.box = box
-        self.op.set_box(box)
+        self.op.set_box(self.box)
+
 
 #wrapper of the Operator, which provides the check of whether on_fit has already called
 class Caller():
@@ -73,13 +73,13 @@ class Caller():
 
     def on_pred(self,*args,**kwargs):
         self.operator._set_box(self.box)
-        if self.__on_fit_called:
-            return self.operator.on_pred(*args,**kwargs)
-        else:
-            raise Exception("on_fit hasn't called yet")
+        return self.operator.on_pred(*args,**kwargs)
 
     def set_box(self,box):
         self.box = box
+
+    def get_box(self):
+        return self.operator.box
 
     def _get_source_func(self,op):
         try:

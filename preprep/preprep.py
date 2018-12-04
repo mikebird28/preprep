@@ -97,8 +97,17 @@ class Baseprep():
         result = graph.run(datasets,mode = "fit")
 
         # After run, collect boxes and save.
-        boxes = [node.op.get_box() for node in sorted_nodes]
-        param_holder.save_boxes(self.param_dir,boxes)
+        update_boxes = []
+        for node in sorted_nodes:
+            # In case node has calculated and have box instance.
+            if node.op.is_executed:
+                update_boxes.append(node.op.box)
+            # In case node hasn't run because cache files exists.
+            elif param_holder.is_exists(self.param_dir,node.op.name):
+                continue
+            else:
+                raise RuntimeError("Paramter files for {} doesn't exsits even though available cache exists.".format(node.op.name))
+        param_holder.save_boxes(self.param_dir,update_boxes)
         return result
 
     def gene(self,datasets,verbose = 0):
@@ -126,7 +135,7 @@ class Baseprep():
         boxes = param_holder.load_boxes(self.param_dir)
         for n in sorted_nodes:
             if not n.op.name in boxes.keys():
-                continue
+                raise RuntimeError("Paramater file for {} doesn't exist. Run 'fit_gene' befor this functions.".format(n.op.name))
             n.op.set_box(boxes[n.op.name])
         graph = calc_graph.CalcGraph(inode_dict,sorted_nodes,verbose = verbose)
         return graph.run(datasets,mode = "predict")

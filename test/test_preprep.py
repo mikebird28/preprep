@@ -199,9 +199,17 @@ class TestPreprep(unittest.TestCase):
         if not os.path.exists("./test_params"):
             os.mkdir("./test_parms")
         df = pd.DataFrame([[1,2,3],[4,5,6]],columns = ["a","b","c"])
+        raw_df = df.copy()
         prep = preprep.Preprep("./test_cache","./test_params")
-        prep = prep.add(TestOp3())
+        prep = prep.add(TestOp3(),name = "test1")
+        prep = prep.add(TestOp3(),name = "test2")
+
+        self.assertRaises(RuntimeError, lambda : prep.gene(df))
+
+        # In case cache file doesn't exist.
         ret1 = prep.fit_gene(df)
+        # In case cache file exists.
+        prep.fit_gene(raw_df)
         ret2 = prep.gene(df)
         assert_frame_equal(ret1,ret2)
         shutil.rmtree("./test_cache")

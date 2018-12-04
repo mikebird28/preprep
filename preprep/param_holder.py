@@ -49,6 +49,11 @@ def save_boxes(path,boxes):
         with open(filepath,"wb") as fp:
             fp.write(box.serialize())
 
+def is_exists(path,name):
+    filename = name+".box"
+    path = os.path.join(path,filename)
+    return os.path.exists(path)
+
 class Box(dict):
     """ 
     Holder to store common values
