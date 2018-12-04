@@ -1,14 +1,16 @@
 
 import unittest
 import hashlib
-from preprep import calc_graph
-from preprep import Operator
 import os
 import shutil
 import numpy as np
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 from numpy.testing import assert_array_equal
+
+from preprep.param_holder import Box
+from preprep import calc_graph
+from preprep import Operator
 
 class TestCalcGraph(unittest.TestCase):
 

@@ -3,9 +3,10 @@ import os
 import pandas as pd
 from . import calc_graph
 from . import exception
+from . import param_holder
 
 class PrepUnit():
-    def __init__(self,name,f,params,cache_dir,cache_format):
+    def __init__(self,name,f,params,cache_dir,params_dir,cache_format):
         self.op = calc_graph.PrepOp(name,f,params)
         self.dependency = []
         self.compiled_node = None
@@ -46,58 +47,58 @@ class InputUnit():
 
 class Baseprep():
     count_for_name = 0
-    def __init__(self,cache_dir,inp_units,top_unit,logger = None):
+    def __init__(self,cache_dir,param_dir,inp_units,top_unit,logger = None):
         self.cache_dir = cache_dir
+        self.param_dir = param_dir
         self.inp_units = inp_units
         self.top_unit = top_unit
         self.logger = None
 
     def add(self,f,params = {},name = None, cache_format = "csv"):
-        """
-        regiter function to this preprep chain.
-
+        """Regiter function to this preprep chain.
         Args:
-            f    : operation fuction or operation class.
-            name : name of this instance.
-            cache_format : "feather", "csv", "pickle", default is "csv".
+            f(function) : Operation instace or fuction which apply to datasets.
+            name(str) : name of this instance.
+            cache_format(str) : "feather", "csv", "pickle", default is "csv".
         Returns:
             return new instance of BasePrep.
-        Raises:
-        
         """
 
         if name is None:
             Baseprep.count_for_name += 1
             name = "unit_{}".format(Baseprep.count_for_name)
-        prep_unit = PrepUnit(name,f,params,self.cache_dir,cache_format)
+        prep_unit = PrepUnit(name,f,params,self.cache_dir,self.param_dir ,cache_format)
         prep_unit.add_dependency([self.top_unit])
 
-        new_prep = Baseprep(self.cache_dir,self.inp_units,prep_unit)
+        new_prep = Baseprep(self.cache_dir,self.param_dir,self.inp_units,prep_unit)
         return new_prep
 
     def fit_gene(self, datasets, verbose = 0, do_cache = True):
         """
-        apply registered operations to datasets. this method cache intermidiate result.
+        Apply operations to datasets. This method will cache results of each basprep outputed.
 
         Args:
-            datasets : inputs dataset
-            verbose  : this mehtods 
-            do_cache : if False, this method will not save cache.
+            datasets(pd.DataFrame) : inputs dataset
+            verbose(int)  : this mehtods 
+            do_cache(bool) : if False, this method will not save cache.
 
         Returns:
-            dataset applied registered operations.
-
-        Raises:
-            
+            dataset applied operations.
         """
+
         #walk units and generate calc_graph
         top_node = self.top_unit.to_node()
         cnode_ls,inode_dict = walk_node(top_node)
         if len(cnode_ls) == 0:
             raise exception.OperationError("No operation has registered")
         sorted_nodes = resolve_graph(cnode_ls)
-        graph = calc_graph.CalcGraph(inode_dict,sorted_nodes,verbose = verbose)
-        return graph.run(datasets,mode = "fit")
+        graph = calc_graph.CalcGraph(inode_dict,sorted_nodes,verbose = verbose) #Create Graph instance.
+        result = graph.run(datasets,mode = "fit")
+
+        # After run, collect boxes and save.
+        boxes = [node.op.get_box() for node in sorted_nodes]
+        param_holder.save_boxes(self.param_dir,boxes)
+        return result
 
     def gene(self,datasets,verbose = 0):
         """
@@ -119,13 +120,20 @@ class Baseprep():
         if len(cnode_ls) == 0:
             raise exception.OperationError("No operation has registered")
         sorted_nodes = resolve_graph(cnode_ls)
+
+        # Before run, load boxes and set to PrepOp instances.
+        boxes = param_holder.load_boxes(self.param_dir)
+        for n in sorted_nodes:
+            if not n.op.name in boxes.keys():
+                continue
+            n.op.set_box(boxes[n.op.name])
         graph = calc_graph.CalcGraph(inode_dict,sorted_nodes,verbose = verbose)
         return graph.run(datasets,mode = "predict")
 
 
 class Preprep(Baseprep):
     count_for_input = 0
-    def __init__(self,cache_dir,input_name = None, logger = None):
+    def __init__(self,cache_dir,param_dir,input_name = None, logger = None):
 
         #if cache_dir doesn't exist, create directory
         if not os.path.exists(cache_dir):
@@ -137,11 +145,11 @@ class Preprep(Baseprep):
             input_name = "input_{}".format(Preprep.count_for_input)
             
         inp_unit = InputUnit(input_name)
-        super().__init__(cache_dir,[inp_unit],inp_unit, logger = logger)
+        super().__init__(cache_dir,param_dir,[inp_unit],inp_unit, logger = logger)
 
 class Connect(Baseprep):
     count_for_connect = 0
-    def __init__(self,f,preps,cache_dir = None, cache_format = None, name = None, param = {}):
+    def __init__(self,f,preps,cache_dir = None, param_dir = None, cache_format = None, name = None, param = {}):
         if name is None:
             Connect.count_for_connect += 1
             name = "conncet_{}".format(Connect.count_for_connect)
@@ -149,19 +157,31 @@ class Connect(Baseprep):
         if cache_dir is None:
             p = preps[0]
             cache_dir = p.cache_dir
+        if param_dir is None:
+            p = preps[0]
+            param_dir = p.param_dir
         new_inputs = preps
-        prep_unit = PrepUnit(name,f,param,cache_dir,cache_format)
+        prep_unit = PrepUnit(name,f,param,cache_dir,param_dir,cache_format)
         prep_unit.add_dependency([p.top_unit for p in preps])
-        super().__init__(cache_dir,new_inputs,prep_unit)
+        super().__init__(cache_dir,param_dir,new_inputs,prep_unit)
 
 
 def walk_node(node):
+    """ Walk node and get all conneted nodes.
+    Args: 
+        node(CalcNode) : Node to walk.
+    Retruns:
+        cnode_ls : List of CalcNodes in the graph.
+        inode_dict : Dictionary of InputNodes in the graph.
+    """
     cnode_ls = []
     inode_dict = {}
     __walk_node(node,cnode_ls,inode_dict)
     return cnode_ls,inode_dict
 
 def __walk_node(node,cnode_ls,inode_dict):
+    """ Inner function of walk_node
+    """
     if isinstance(node,calc_graph.InputNode):
         inode_dict[node.name] = node
         return

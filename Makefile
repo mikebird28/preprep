@@ -9,9 +9,10 @@ clean:
 	rm -f test/*.pyc
 
 test:
-	python -m unittest test.test_preprep
+	python -m unittest test.test_param_holder
+	python -m unittest test.test_savefile
 	python -m unittest test.test_operator
 	python -m unittest test.test_calc_graph
-	python -m unittest test.test_savefile
+	python -m unittest test.test_preprep
 
 .PHONY: local clean test

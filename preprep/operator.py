@@ -1,13 +1,15 @@
 
 import inspect
 import dill
+from .param_holder import Box
 #wrapper of the Operator, which provides the check of whether on_fit has already called
 class Caller():
     """
     Wrapper of operatoins
     """
-    def __init__(self,operator):
+    def __init__(self,operator,box):
         self.__on_fit_called = False
+        self.box = box
         if isinstance(operator,Operator):
             self.source = self._get_source_operator(operator)
             self.operator = operator
@@ -18,14 +20,21 @@ class Caller():
             raise ValueError("you can only use Function or Operator subclass as 'add' arguments")
 
     def on_fit(self,*args,**kwargs):
+        # In training mode, clear all values in the box.
+        self.box.clear()
+        self.operator._set_box(self.box)
         self.__on_fit_called = True
         return self.operator.on_fit(*args,**kwargs)
 
     def on_pred(self,*args,**kwargs):
+        self.operator._set_box(self.box)
         if self.__on_fit_called:
             return self.operator.on_pred(*args,**kwargs)
         else:
             raise Exception("on_fit hasn't called yet")
+
+    def set_box(self,box):
+        self.box = box
 
     def _get_source_func(self,op):
         try:
@@ -54,8 +63,15 @@ class Caller():
 
 #Abstract Class
 class Operator(object):
-    def __init__(self):
-        return
+
+    def _set_box(self,box):
+        self.box = box
+
+    def save_value(self,key,value):
+        self.box[key] = value
+
+    def get_value(self,key):
+        return self.box[key]
 
     def on_pred(self,*args,**kwargs):
         return

@@ -8,6 +8,7 @@ from pandas.util import hash_pandas_object
 from . import exception
 from . import save_file
 from . import operator
+from . import param_holder
 
 DUMP_CSV = "csv"
 DUMP_FEATHER = "feather"
@@ -29,7 +30,8 @@ class PrepOp:
 
     def __init__(self,name,op,params):
         self.name = name
-        self.op = operator.Caller(op)
+        self.box = param_holder.Box(name)
+        self.op = operator.Caller(op,self.box)
         self.op_source = self.op.get_source()
         self.params = params
 
@@ -49,7 +51,23 @@ class PrepOp:
         hash_value = hashlib.md5(total_byte).hexdigest()
         return hash_value
 
+    def get_box(self):
+        return self.box
+
+    def set_box(self,box):
+        self.box = box
+        self.op.set_box(box)
+        
+
+
 class CalcNode:
+    """ Node of Calculation Graph
+    Args:
+        prev_nodes(CalcNode) : 
+        op :
+        hash_path : 
+        cache_helper : 
+    """
     def __init__(self, prev_nodes, op, hash_path, cache_helper):
         self.prev_nodes = prev_nodes
         self.op = op
@@ -193,17 +211,19 @@ class CalcGraph:
         Returns:
             output_datasets
         """
-        #check input value and set to input_node
         log("[*] start running graph",1,self.verbose)
 
-        #if number of node == 1
+        # Check input value and set to input_node
+        #if number of nodes == 1
         if not isinstance(inp_dataset,dict) and len(self.inp_nodes) == 1:
             n = list(self.inp_nodes.values())[0]
             n.set_dataset(inp_dataset)
-        #if number of node > 1
+        #if number of nodes > 1
         elif isinstance(inp_dataset,dict) and len(self.inp_nodes) == len(inp_dataset):
             if sorted(list(inp_dataset.keys())) != sorted(list(self.inp_nodes.keys())):
-                raise Exception("Input is something wrong")
+                input_key = sorted(list(inp_dataset.keys()))
+                required_key = sorted(list(self.inp_nodes.keys()))
+                raise ValueError("Key of inputs dataset is wrong. Inputs : {}, Requird : {}".format(input_key,required_key))
             for k,n in self.inp_nodes.items():
                 n.set_dataset(inp_dataset[k])
         else:
