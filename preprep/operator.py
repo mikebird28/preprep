@@ -1,7 +1,52 @@
 
 import inspect
 import dill
+import hashlib
 from .param_holder import Box
+from . import constant
+
+
+class PrepOp:
+    """
+    Wrapper of operations
+
+    Attributes:
+        name : name of operation
+        op   : body of operation
+        op_source : source code of op
+        params    : arguments for op
+    """
+
+    def __init__(self,name,op,params):
+        self.name = name
+        self.box = Box(name)
+        self.op = Caller(op,self.box)
+        self.op_source = self.op.get_source()
+        self.params = params
+
+    def execute(self,dataset,mode):
+        if mode == constant.MODE_FIT:
+            return self.op.on_fit(*dataset,**self.params)
+        elif mode == constant.MODE_PRED:
+            return self.op.on_pred(*dataset,**self.params)
+        else:
+            raise TypeError("unknown mode : {}".format(mode))
+
+    def get_hash(self):
+        name_dump = dill.dumps(self.name)
+        op_dump = self.op_source
+        params_dump = dill.dumps(sorted(self.params.items()))
+        total_byte = name_dump + op_dump + params_dump
+        hash_value = hashlib.md5(total_byte).hexdigest()
+        return hash_value
+
+    def get_box(self):
+        return self.box
+
+    def set_box(self,box):
+        self.box = box
+        self.op.set_box(box)
+
 #wrapper of the Operator, which provides the check of whether on_fit has already called
 class Caller():
     """

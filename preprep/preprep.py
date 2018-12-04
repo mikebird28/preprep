@@ -4,10 +4,11 @@ import pandas as pd
 from . import calc_graph
 from . import exception
 from . import param_holder
+from . import operator
 
 class PrepUnit():
     def __init__(self,name,f,params,cache_dir,params_dir,cache_format):
-        self.op = calc_graph.PrepOp(name,f,params)
+        self.op = operator.PrepOp(name,f,params)
         self.dependency = []
         self.compiled_node = None
 

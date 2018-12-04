@@ -10,6 +10,7 @@ from numpy.testing import assert_array_equal
 
 from preprep.param_holder import Box
 from preprep import calc_graph
+from preprep import PrepOp
 from preprep import Operator
 
 class TestCalcGraph(unittest.TestCase):
@@ -92,7 +93,7 @@ class TestCalcGraph(unittest.TestCase):
         shutil.rmtree("./test_cache")
 
 def create_graph_with_op(op_name,op,save_format = "csv"):
-    op = calc_graph.PrepOp(op_name,op,{})
+    op = PrepOp(op_name,op,{})
     inp_node = calc_graph.InputNode("inp1")
     inp_nodes = {"input_1":inp_node}
     calc_node_1 = calc_graph.CalcNode([inp_node],op,"./test_cache/hash1.md5",calc_graph.CacheHelper("./test_cache/cache1."+save_format,save_format))
@@ -104,7 +105,7 @@ def create_graph_with_op(op_name,op,save_format = "csv"):
 
 
 def create_simple_graph(op_name,save_format = "csv"):
-    op = calc_graph.PrepOp(op_name,lambda x : x*2, {})
+    op = PrepOp(op_name,lambda x : x*2, {})
     inp_node = calc_graph.InputNode("inp1")
     inp_nodes = {"input_1":inp_node}
     calc_node_1 = calc_graph.CalcNode([inp_node],op,"./test_cache/hash1.md5",calc_graph.CacheHelper("./test_cache/cache1."+save_format,save_format))
@@ -115,8 +116,8 @@ def create_simple_graph(op_name,save_format = "csv"):
     return calc_graph.CalcGraph(inp_nodes,nodes)
 
 def create_split_graph(op_name,save_format = "csv"):
-    op = calc_graph.PrepOp(op_name,lambda x : x*2, {})
-    op_s = calc_graph.PrepOp(op_name,lambda x,y : x+y, {})
+    op = PrepOp(op_name,lambda x : x*2, {})
+    op_s = PrepOp(op_name,lambda x,y : x+y, {})
     inp_node = calc_graph.InputNode("inp1")
     inp_nodes = {"input_1":inp_node}
     calc_node_1 = calc_graph.CalcNode([inp_node],op,"./test_cache/hash1.md5",calc_graph.CacheHelper("./test_cache/cache1."+save_format,save_format))
@@ -127,8 +128,8 @@ def create_split_graph(op_name,save_format = "csv"):
     return calc_graph.CalcGraph(inp_nodes,nodes)
 
 def create_mutliinput_graph(op_name,save_format = "csv"):
-    op = calc_graph.PrepOp(op_name,lambda x : x*2, {})
-    op_s = calc_graph.PrepOp(op_name,lambda x,y : 3*(x+y), {})
+    op = PrepOp(op_name,lambda x : x*2, {})
+    op_s = PrepOp(op_name,lambda x,y : 3*(x+y), {})
     inp_node1 = calc_graph.InputNode("inp1")
     inp_node2 = calc_graph.InputNode("inp2")
     inp_nodes = {"input_1":inp_node1,"input_2":inp_node2}

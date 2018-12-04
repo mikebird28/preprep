@@ -9,56 +9,7 @@ from . import exception
 from . import save_file
 from . import operator
 from . import param_holder
-
-DUMP_CSV = "csv"
-DUMP_FEATHER = "feather"
-DUMP_PICKLE = "pickle"
-
-MODE_FIT = "fit"
-MODE_PRED = "predict"
-
-class PrepOp:
-    """
-    Wrapper of operations
-
-    Attributes:
-        name : name of operation
-        op   : body of operation
-        op_source : source code of op
-        params    : arguments for op
-    """
-
-    def __init__(self,name,op,params):
-        self.name = name
-        self.box = param_holder.Box(name)
-        self.op = operator.Caller(op,self.box)
-        self.op_source = self.op.get_source()
-        self.params = params
-
-    def execute(self,dataset,mode):
-        if mode == MODE_FIT:
-            return self.op.on_fit(*dataset,**self.params)
-        elif mode == MODE_PRED:
-            return self.op.on_pred(*dataset,**self.params)
-        else:
-            raise TypeError("unknown mode : {}".format(mode))
-
-    def get_hash(self):
-        name_dump = dill.dumps(self.name)
-        op_dump = self.op_source
-        params_dump = dill.dumps(sorted(self.params.items()))
-        total_byte = name_dump + op_dump + params_dump
-        hash_value = hashlib.md5(total_byte).hexdigest()
-        return hash_value
-
-    def get_box(self):
-        return self.box
-
-    def set_box(self,box):
-        self.box = box
-        self.op.set_box(box)
-        
-
+from . import constant
 
 class CalcNode:
     """ Node of Calculation Graph
@@ -103,9 +54,9 @@ class CalcNode:
         """
         #check arguments
         use_hash = True
-        if mode == MODE_FIT:
+        if mode == constant.MODE_FIT:
             use_hash = True
-        elif mode == MODE_PRED:
+        elif mode == constant.MODE_PRED:
             use_hash = False
         else:
             raise ValueError("unknown mode {}".format(mode))
