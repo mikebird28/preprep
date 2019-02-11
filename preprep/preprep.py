@@ -141,6 +141,10 @@ class Preprep(Baseprep):
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
 
+        #if param_dir doesn't exist, create directory
+        if not os.path.exists(param_dir):
+            os.makedirs(param_dir)
+
         #if input_name isn't specified, set default value
         if input_name is None:
             Preprep.count_for_input += 1
