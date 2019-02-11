@@ -15,8 +15,12 @@ def load_boxes(path):
     boxes = {}
     files = os.listdir(path)
     for f in files:
-        f = remove_box_suffix(f)
-        boxes[f] = Box(f,path)
+        try:
+            f = remove_box_suffix(f)
+            boxes[f] = Box(f,path)
+        except ValueError:
+            # If file name doesn't contains box suffix, skip.
+            pass
     return boxes
 
 def is_exists(path,name):
@@ -84,14 +88,19 @@ class Box():
             file_path = os.path.join(boxpath,f)
             try:
                 if os.path.isfile(file_path):
-                    os.unlink(file_path)
+                    os.remove(file_path)
+                    #os.unlink(file_path)
                 elif os.path.isdir(file_path):
                     shutil.rmtree(file_path)
             except Exception as e:
                 print(e)
-        
-        
-        
+    @property
+    def size(self):
+        boxpath = os.path.join(self.paramdir,get_box_name(self.name))
+        if not os.path.exists(boxpath):
+            raise FileNotFoundError("{} doesn't exists.")
 
+        if not os.path.isdir(boxpath):
+            raise IOError("{} is not directory.")
 
-
+        return len(os.listdir(boxpath))

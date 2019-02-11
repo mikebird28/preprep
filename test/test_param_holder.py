@@ -20,6 +20,14 @@ class TestParamHolder(unittest.TestCase):
         self.assertEqual(box1["key1"],box2["key1"])
         self.assertEqual(box1["key2"],box2["key2"])
 
+        # Check size
+        self.assertEqual(box1.size,2)
+        self.assertEqual(box2.size,2)
+        box1.clear()
+        self.assertEqual(box1.size,0)
+        self.assertEqual(box2.size,0)
+
+
     def test_load(self):
         test_path = "./test_box"
         invalid_path = "./invaild_box"
