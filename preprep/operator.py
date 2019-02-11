@@ -15,11 +15,13 @@ class PrepOp:
         op   : body of operation
         op_source : source code of op
         params    : arguments for op
+        params_dir: path of box file.
     """
 
-    def __init__(self,name,op,params):
+    def __init__(self,name,op,params,box):
         self.name = name
-        self.box = Box(name)
+        self.box = box
+        #self.box = Box(name)
         self.op = Caller(op,self.box)
         self.op_source = self.op.get_source()
         self.params = params

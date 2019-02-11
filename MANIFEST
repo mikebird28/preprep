@@ -2,10 +2,14 @@
 setup.py
 preprep/__init__.py
 preprep/calc_graph.py
+preprep/constant.py
 preprep/exception.py
 preprep/operator.py
+preprep/param_holder.py
 preprep/preprep.py
 preprep/save_file.py
 test/test_calc_graph.py
+test/test_operator.py
+test/test_param_holder.py
 test/test_preprep.py
 test/test_savefile.py

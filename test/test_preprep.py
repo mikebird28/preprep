@@ -204,7 +204,7 @@ class TestPreprep(unittest.TestCase):
         prep = prep.add(TestOp3(),name = "test1")
         prep = prep.add(TestOp3(),name = "test2")
 
-        self.assertRaises(RuntimeError, lambda : prep.gene(df))
+        self.assertRaises(KeyError, lambda : prep.gene(df))
 
         # In case cache file doesn't exist.
         ret1 = prep.fit_gene(df)

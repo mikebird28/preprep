@@ -7,6 +7,7 @@ clean:
 	rm -f *.pyc
 	rm -f preprep/*.pyc
 	rm -f test/*.pyc
+	rm -rf dist
 
 test:
 	python -m unittest test.test_param_holder

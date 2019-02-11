@@ -16,8 +16,13 @@ from preprep import Operator
 class TestCalcGraph(unittest.TestCase):
 
     def test_hash_io(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         path = "./test_cache/hash_io.md5"
         out_hash = hashlib.md5(bytes("a","utf-8")).hexdigest()
         op_hash =  hashlib.md5(bytes("b","utf-8",)).hexdigest()
@@ -27,73 +32,112 @@ class TestCalcGraph(unittest.TestCase):
         self.assertEqual(out_hash,out_hash2)
         self.assertEqual(op_hash,op_hash2)
         self.assertEqual(inp_hash,inp_hash2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
     def test_calc_graph_with_op(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         dataset = create_simple_dataset()
         op = TestOp()
-        graph = create_graph_with_op("testop",op)
+        graph = create_graph_with_op("testop",op,param_path)
         dataset1 = graph.run({"input_1":dataset})
         dataset2 = graph.run(dataset)
         assert_frame_equal(dataset1,dataset2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
     def test_calc_graph(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         dataset = create_simple_dataset()
-        graph = create_simple_graph("test1")
+        graph = create_simple_graph("test1",param_path)
         dataset1 = graph.run({"input_1":dataset})
         dataset2 = graph.run(dataset)
         assert_frame_equal(dataset1,dataset2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
     def test_calc_split_graph(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         dataset = create_simple_dataset()
-        graph = create_split_graph("test1")
+        graph = create_split_graph("test1",param_path)
         dataset1 = graph.run({"input_1":dataset})
         dataset2 = graph.run(dataset)
         assert_frame_equal(dataset1,dataset2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
     def test_calc_mutlitinput_graph(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         dataset = create_simple_dataset()
-        graph = create_mutliinput_graph("test1")
+        graph = create_mutliinput_graph("test1",param_path)
         dataset1 = graph.run({"input_1":dataset,"input_2":dataset})
         dataset2 = graph.run({"input_1":dataset,"input_2":dataset})
         assert_frame_equal(dataset1,dataset2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
     def test_calc_graph_with_numpy_dataset(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         dataset = create_numpy_dataset()
-        graph = create_simple_graph("test1","npy")
+        graph = create_simple_graph("test1",param_path,save_format="npy")
         dataset1 = graph.run({"input_1":dataset})
         dataset2 = graph.run(dataset)
         assert_array_equal(dataset1,dataset2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
     def test_calc_graph_with_different_op(self):
-        if not os.path.exists("./test_cache"):
-            os.mkdir("test_cache")
+        cache_path = "./test_cache"
+        param_path = "./test_params"
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        if not os.path.exists(param_path):
+            os.mkdir(param_path)
+
         dataset = create_simple_dataset()
-        graph = create_simple_graph("test1")
+        graph = create_simple_graph("test1",param_path)
         dataset1 = graph.run(dataset)
 
-        graph = create_simple_graph("test2")
+        graph = create_simple_graph("test2",param_path)
         dataset2 = graph.run(dataset)
         assert_frame_equal(dataset1,dataset2)
-        shutil.rmtree("./test_cache")
+        shutil.rmtree(cache_path)
+        shutil.rmtree(param_path)
 
-def create_graph_with_op(op_name,op,save_format = "csv"):
-    op = PrepOp(op_name,op,{})
+
+def create_graph_with_op(op_name,op,param_path,save_format = "csv"):
+    box = Box(op_name,param_path)
+    op = PrepOp(op_name,op,{},box)
     inp_node = calc_graph.InputNode("inp1")
     inp_nodes = {"input_1":inp_node}
     calc_node_1 = calc_graph.CalcNode([inp_node],op,"./test_cache/hash1.md5",calc_graph.CacheHelper("./test_cache/cache1."+save_format,save_format))
@@ -104,8 +148,9 @@ def create_graph_with_op(op_name,op,save_format = "csv"):
     return calc_graph.CalcGraph(inp_nodes,nodes)
 
 
-def create_simple_graph(op_name,save_format = "csv"):
-    op = PrepOp(op_name,lambda x : x*2, {})
+def create_simple_graph(op_name,param_path,save_format = "csv"):
+    box = Box(op_name,param_path)
+    op = PrepOp(op_name,lambda x : x*2, {},box)
     inp_node = calc_graph.InputNode("inp1")
     inp_nodes = {"input_1":inp_node}
     calc_node_1 = calc_graph.CalcNode([inp_node],op,"./test_cache/hash1.md5",calc_graph.CacheHelper("./test_cache/cache1."+save_format,save_format))
@@ -115,9 +160,10 @@ def create_simple_graph(op_name,save_format = "csv"):
     nodes = [calc_node_1,calc_node_2,calc_node_3,calc_node_4]
     return calc_graph.CalcGraph(inp_nodes,nodes)
 
-def create_split_graph(op_name,save_format = "csv"):
-    op = PrepOp(op_name,lambda x : x*2, {})
-    op_s = PrepOp(op_name,lambda x,y : x+y, {})
+def create_split_graph(op_name,param_path,save_format = "csv"):
+    box = Box(op_name,param_path)
+    op = PrepOp(op_name,lambda x : x*2, {},box)
+    op_s = PrepOp(op_name,lambda x,y : x+y, {},box)
     inp_node = calc_graph.InputNode("inp1")
     inp_nodes = {"input_1":inp_node}
     calc_node_1 = calc_graph.CalcNode([inp_node],op,"./test_cache/hash1.md5",calc_graph.CacheHelper("./test_cache/cache1."+save_format,save_format))
@@ -127,9 +173,10 @@ def create_split_graph(op_name,save_format = "csv"):
     nodes = [calc_node_1,calc_node_2,calc_node_3,calc_node_4]
     return calc_graph.CalcGraph(inp_nodes,nodes)
 
-def create_mutliinput_graph(op_name,save_format = "csv"):
-    op = PrepOp(op_name,lambda x : x*2, {})
-    op_s = PrepOp(op_name,lambda x,y : 3*(x+y), {})
+def create_mutliinput_graph(op_name,param_path,save_format = "csv"):
+    box = Box(op_name,param_path)
+    op = PrepOp(op_name,lambda x : x*2, {},box)
+    op_s = PrepOp(op_name,lambda x,y : 3*(x+y), {}, box)
     inp_node1 = calc_graph.InputNode("inp1")
     inp_node2 = calc_graph.InputNode("inp2")
     inp_nodes = {"input_1":inp_node1,"input_2":inp_node2}
