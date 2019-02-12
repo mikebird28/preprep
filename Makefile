@@ -3,6 +3,10 @@
 local:
 	pip install -e ./
 
+upload:
+	python setup.py sdist
+	twine upload dist/*
+
 clean:
 	rm -f *.pyc
 	rm -f preprep/*.pyc
@@ -16,4 +20,4 @@ test:
 	python -m unittest test.test_calc_graph
 	python -m unittest test.test_preprep
 
-.PHONY: local clean test
+.PHONY: local clean test upload
